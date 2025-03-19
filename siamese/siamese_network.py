@@ -39,7 +39,6 @@ def train(epochs, max_lr, model, train_dl, opt_func=optim.SGD):
 
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-            print('loss_contrastive:', loss)
             losses.append(loss.item())
             cuda.empty_cache()
 
@@ -58,57 +57,69 @@ def imshow(img):
     plt.show()
 
 def test(model, test_dl):
-    # test the network
-    count = 0
-    for i, data in enumerate(test_dl):
-        cuda.empty_cache()
-        x0, x1, label = data
-        concat = torch.cat((x0, x1), 0)
-        output1, output2 = model(x0.to(device), x1.to(device))
-        print('o1, o2: ', output1.shape, output2.shape)
-        print('o1: ', output1)
-        print('o2: ', output2)
+    model.eval()
 
-        eucledian_distance = F.pairwise_distance(output1, output2, eps=1e-6)
-        #
+    with torch.no_grad():
+        # test the network
+        # count = 0
+        for i, data in enumerate(test_dl):
+            cuda.empty_cache()
+            x0, x1, label = data
+            # concat = torch.cat((x0, x1), 0)
+            output1, output2 = model(x0.to(device), x1.to(device))
+
+            eucledian_distance = F.pairwise_distance(output1, output2, eps=1e-6)
+
+            print("Predicted Eucledian Distance:-", eucledian_distance)
+            print("Actual Label:-", label)
+
+
         #     if label == torch.FloatTensor([[0]]):
         #         label = "Original Pair Of Signature"
         #     else:
         #         label = "Forged Pair Of Signature"
         #
 
-        imshow(torchvision.utils.make_grid(concat))
-        print("Predicted Eucledian Distance:-", eucledian_distance)
-        print("Actual Label:-", label)
-        count = count + 1
-        if count == 10:
-            break
+        # imshow(torchvision.utils.make_grid(concat))
+
+        # count = count + 1
+        # if count == 10:
+        #     break
 
 
-train_dir = "../data/train/DataSet_GOPRO_RGB_train"
-test_dir = "../data/test/DataSet_GOPRO_RGB_test1"
+# train_dir = "../data/train/DataSet_GOPRO_RGB_train"
+#
+# device = device('cuda' if cuda.is_available else 'cpu')
+# model = SiameseNetwork()
+# model = model.to(device)
+#
+# criterion = ContrastiveLoss()
+#
+# train_ds = CustomDataset(train_dir)
 
-device = device('cuda' if cuda.is_available else 'cpu')
-model = SiameseNetwork()
-model = model.to(device)
-
-criterion = ContrastiveLoss()
-
-train_ds = CustomDataset(train_dir)
-test_ds = CustomDataset(test_dir)
-
-train_dl = DataLoader(train_ds, shuffle=True, num_workers=0, pin_memory=True, batch_size=8)
-test_dl = DataLoader(test_ds, shuffle=False, num_workers=0, pin_memory=True, batch_size=8)
-
-epochs = 2
-max_lr = 1e-4
-opt_func = optim.Adam
-
+#
+# train_dl = DataLoader(train_ds, shuffle=True, num_workers=0, pin_memory=True, batch_size=8)
+#
+# epochs = 3
+# max_lr = 1e-4
+# opt_func = optim.Adam
+#
 # model, losses = train(epochs, max_lr, model, train_dl, opt_func)
 #
-#
-# torch.save(model.state_dict(), 'model.pth')
 # with open('losses.pkl', 'wb') as f:
 #     pickle.dump(losses, f)
+#
+# torch.save(model.state_dict(), 'model.pth')
 
+device = device('cuda' if cuda.is_available else 'cpu')
+
+model = SiameseNetwork().to(device)
+model.load_state_dict(torch.load('model.pth', weights_only=True))
+model.eval()
+
+test_dir = "../data/test/DataSet_GOPRO_RGB_test1"
+test_ds = CustomDataset(test_dir)
+test_dl = DataLoader(test_ds, shuffle=False, num_workers=0, pin_memory=True, batch_size=8)
+
+torch.cuda.empty_cache()
 test(model, test_dl)
