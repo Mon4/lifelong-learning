@@ -1,12 +1,16 @@
 # Load the the dataset from raw image folders
 import os
 import datetime
+
+import numpy as np
 import torch
 import torchvision
 from matplotlib import pyplot as plt
 from matplotlib.pyplot import imshow
 from torch import optim, device, cuda, amp
 from torch.utils.data import DataLoader
+from torchvision.utils import make_grid
+
 from siamese.load_data import CustomDataset
 from siamese.model import SiameseNetwork, ContrastiveLoss
 import torch.nn.functional as F
@@ -50,43 +54,46 @@ def train(epochs, max_lr, model, train_dl, opt_func=optim.SGD):
     return model, epoch_losses
 
 
-def imshow(img):
-    img = img.permute(1, 2, 0)  # Change (C, H, W) -> (H, W, C)
-    plt.imshow(img.numpy())
-    plt.axis('off')
-    plt.show()
+# def imshow(img):
+#     img = img.permute(1, 2, 0)  # Change (C, H, W) -> (H, W, C)
+#     plt.imshow(img.numpy())
+#     plt.axis('off')
+#     plt.show()
 
 def test(model, test_dl):
     model.eval()
 
-    with torch.no_grad():
-        # test the network
+    with (torch.no_grad()):
         # count = 0
         for i, data in enumerate(test_dl):
             cuda.empty_cache()
-            x0, x1, label = data
-            # concat = torch.cat((x0, x1), 0)
+            x0, x1, labels = data
             output1, output2 = model(x0.to(device), x1.to(device))
 
             eucledian_distance = F.pairwise_distance(output1, output2, eps=1e-6)
 
-            print("Predicted Eucledian Distance:-", eucledian_distance)
-            print("Actual Label:-", label)
+        eucledian_distance = [round(dist.item(), 4) for dist in eucledian_distance]
+        text_label = ['not close locations' if lbl == 0 else 'close locations' for lbl in labels]
 
+        fig, axes = plt.subplots(2, 3, figsize=(9, 6))
 
-        #     if label == torch.FloatTensor([[0]]):
-        #         label = "Original Pair Of Signature"
-        #     else:
-        #         label = "Forged Pair Of Signature"
-        #
-
-        # imshow(torchvision.utils.make_grid(concat))
+        for j in range(x0.shape[0]):
+            img1 = np.transpose(x0[j], (1, 2, 0))
+            img2 = np.transpose(x1[j], (1, 2, 0))
+            axes[0, j].imshow(img1)
+            axes[0, j].axis("off")
+            axes[1, j].set_title(f"label: {labels[j]}\n"
+                                 f"{text_label[j]}\n"
+                                 f"euclidean distance: {eucledian_distance[j]}")
+            axes[1, j].imshow(img2)
+            axes[1, j].axis("off")
+        plt.show()
 
         # count = count + 1
         # if count == 10:
         #     break
 
-
+# TRAIN
 # train_dir = "../data/train/DataSet_GOPRO_RGB_train"
 #
 # device = device('cuda' if cuda.is_available else 'cpu')
@@ -111,6 +118,7 @@ def test(model, test_dl):
 #
 # torch.save(model.state_dict(), 'model.pth')
 
+# TEST
 device = device('cuda' if cuda.is_available else 'cpu')
 
 model = SiameseNetwork().to(device)
